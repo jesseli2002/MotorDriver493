@@ -104,30 +104,7 @@ inline void checkCommands() {
 }
 
 void loop() {
-    int steps = 2500;
-
-    Motor_command(MOTOR_IDLE);
-    delayMicroseconds(MOTOR_DELAY_TIME);
-    for (int i = 0; i < steps; ++i) {
-        Motor_command(255);
-        delayMicroseconds(MOTOR_DELAY_TIME);
-        Motor_command(234);
-        delayMicroseconds(MOTOR_DELAY_TIME);
-        Motor_command(255);
-        delayMicroseconds(MOTOR_DELAY_TIME);
-    }
-    delayMicroseconds(MOTOR_DELAY_TIME);
-    for (int i = 0; i < steps; ++i) {
-        Motor_command(213);
-        delayMicroseconds(MOTOR_DELAY_TIME);
-        Motor_command(192);
-        delayMicroseconds(MOTOR_DELAY_TIME);
-        Motor_command(213);
-        delayMicroseconds(MOTOR_DELAY_TIME);
-    }
-    delay(500);
-    return;
-
+    // int steps = 2500;
 
     checkCommands();
 
