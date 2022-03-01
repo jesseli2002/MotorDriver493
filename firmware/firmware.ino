@@ -14,12 +14,17 @@ const unsigned char MOTOR_DIR[3] = {
    0b11011111
 };
 
-#define MOTOR_X_PULSE 0b11111110
-#define MOTOR_Y_PULSE 0b11111011
-#define MOTOR_Z_PULSE 0b11101111
-#define MOTOR_X_DIR   0b11111101
-#define MOTOR_Y_DIR   0b11110111
-#define MOTOR_Z_DIR   0b11011111
+// Time between steps (needed to avoid skipping), in microseconds
+#define MOTOR_DELAY_TIME 25
+// Time to wait for signal to settle, to avoid race conditions in direction
+#define MOTOR_SIGNAL_SETTLE_TIME 5
+
+// #define MOTOR_X_PULSE 0b11111110
+// #define MOTOR_Y_PULSE 0b11111011
+// #define MOTOR_Z_PULSE 0b11101111
+// #define MOTOR_X_DIR   0b11111101
+// #define MOTOR_Y_DIR   0b11110111
+// #define MOTOR_Z_DIR   0b11011111
 
 /*
 Port D maps to Arduino digital pins 0 to 7; 0, 1 are used by UART
@@ -48,9 +53,10 @@ long position_ref[3]; // XYZ array
 // Actual (current) position
 long position[3]; // XYZ array
 
+#define MAX_ITERS 100
 
 /**
- * Protocol:
+ * Protocol (planned):
  * SW sends a query command on startup/periodically to ask if further commands can be sent.
  * FW will respond to query indicating yes/no, as well as how many commands are remaining in queue.
  *
@@ -70,11 +76,6 @@ void setup() {
         position[i] = 0;
     }
 }
-
-// Time between steps (needed to avoid skipping), in microseconds
-#define MOTOR_DELAY_TIME 25
-// Time to wait for signal to settle, to avoid race conditions in direction
-#define MOTOR_SIGNAL_SETTLE_TIME 5
 
 inline void checkCommands() {
     while (true) {
@@ -111,9 +112,9 @@ void loop() {
     unsigned char idle_val = MOTOR_IDLE;
     unsigned char motor_val = MOTOR_IDLE;
 
-    int loop_count = 0;
+    int iters = MAX_ITERS;
     int error_count = 3;
-    while (error_count != 0)
+    while (error_count != 0 && --iters != 0)
     {
         error_count = 3;
         for (int i = 0; i < 3; ++i) {
@@ -135,28 +136,5 @@ void loop() {
         delayMicroseconds(MOTOR_DELAY_TIME);
         Motor_command(idle_val);
         delayMicroseconds(MOTOR_DELAY_TIME);
-
-
-        ++loop_count;
-        if (loop_count > 200) {
-            loop_count = 0;
-
-            Serial.write("Idle/motor: ");
-            Serial.print(idle_val);
-            Serial.write(',');
-            Serial.print(motor_val);
-            Serial.write(",\n");
-
-            // Serial.print("Pos/ref: ");
-            // for (int i = 0; i < 3; ++i){
-            //     Serial.print(position[i]);
-            //     Serial.write('/');
-            //     Serial.print(position_ref[i]);
-            //     Serial.write(',');
-            // }
-            // Serial.write('\n');
-
-        }
-
     }
 }
