@@ -1,12 +1,24 @@
-#include <cstring>
+#include <string.h>
 #include "packet.h"
 
 #define MOTOR_IDLE 0xFF
+
+const unsigned char MOTOR_PULSE[3] = {
+    0b11111110,
+    0b11111011,
+    0b11101111,
+};
+const unsigned char MOTOR_DIR[3] = {
+   0b11111101,
+   0b11110111,
+   0b11011111
+};
+
 #define MOTOR_X_PULSE 0b11111110
-#define MOTOR_X_DIR   0b11111101
 #define MOTOR_Y_PULSE 0b11111011
-#define MOTOR_Y_DIR   0b11110111
 #define MOTOR_Z_PULSE 0b11101111
+#define MOTOR_X_DIR   0b11111101
+#define MOTOR_Y_DIR   0b11110111
 #define MOTOR_Z_DIR   0b11011111
 
 /*
@@ -24,12 +36,19 @@ Use pins 2 thru 9 inclusive. Pin 2 => LSB, pin 9 => MSB.
 /**
  * @brief Writes a command to the motor driver parallel port.
 */
-void Motor_commmand(char cmd){
+void Motor_command(char cmd){
     PORTD = ((cmd & MOTOR_PORTD_BITS) << 2) | (PORTD & 0b00000011);
-    PORTB = ((cmd & MOTOR_PORTB_BITS) >> 6) | (PORTB & 0b11111100) ;
+    PORTB = ((cmd & MOTOR_PORTB_BITS) >> 6) | (PORTB & 0b11111100);
 }
 
 Packet packet;
+
+// Reference (target) position
+long position_ref[3]; // XYZ array
+// Actual (current) position
+long position[3]; // XYZ array
+
+
 /**
  * Protocol:
  * SW sends a query command on startup/periodically to ask if further commands can be sent.
@@ -44,23 +63,27 @@ void setup() {
     DDRB = 0xFF;
     Serial.begin(19200, SERIAL_8E1); // 8 bits, even parity, 1 stop bit
     Packet_init(&packet);
-    Motor_commmand(MOTOR_IDLE);
+    Motor_command(MOTOR_IDLE);
+
+    for (int i = 0; i < 3; ++i){
+        position_ref[i] = 0;
+        position[i] = 0;
+    }
 }
 
-// Reference (target) position
-long position_ref[3]; // XYZ array
-// Actual (current) position
-long position[3]; // XYZ array
+// Time between steps (needed to avoid skipping), in microseconds
+#define MOTOR_DELAY_TIME 25
+// Time to wait for signal to settle, to avoid race conditions in direction
+#define MOTOR_SIGNAL_SETTLE_TIME 5
 
-
-// Time between steps (needed to avoid skipping), in us. TODO: Tune
-#define DELAY_TIME 25
 inline void checkCommands() {
     while (true) {
+
         int nextChar = Serial.read();
         if (nextChar == -1) {
             return;
         }
+
         // else data read
         if (!Packet_parse(&packet, static_cast<char>(nextChar))) {
             continue;
@@ -74,40 +97,85 @@ inline void checkCommands() {
             case 1:
             // Provides absolute target update, little endian
             for(int i = 0; i < 3; ++i) {
-                std::memcpy(&(position_ref[i]), &(packet.dat[i * 4]), 4);
+                memcpy(&(position_ref[i]), &(packet.dat[i * 4]), 4);
             }
         }
     }
 }
 
 void loop() {
-    checkCommands();
-    Serial.write("Target position, XYZ: ");
-    Serial.print(position_ref[0]);
-    Serial.write(", ");
-    Serial.print(position_ref[1]);
-    Serial.write(", ");
-    Serial.println(position_ref[2]);
+    int steps = 2500;
+
+    Motor_command(MOTOR_IDLE);
+    delayMicroseconds(MOTOR_DELAY_TIME);
+    for (int i = 0; i < steps; ++i) {
+        Motor_command(MOTOR_PULSE[0]);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+        Motor_command(MOTOR_IDLE);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+    }
+    delayMicroseconds(MOTOR_DELAY_TIME);
+    for (int i = 0; i < steps; ++i) {
+        Motor_command(MOTOR_PULSE[0] & MOTOR_DIR[0]);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+        Motor_command(MOTOR_DIR[0]);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+    }
     delay(500);
     return;
 
 
-    int steps = 2500;
+    checkCommands();
 
-    Motor_commmand(MOTOR_IDLE);
-    delayMicroseconds(DELAY_TIME);
-    for (int i = 0; i < steps; ++i) {
-        Motor_commmand(MOTOR_X_PULSE);
-        delayMicroseconds(DELAY_TIME);
-        Motor_commmand(MOTOR_IDLE);
-        delayMicroseconds(DELAY_TIME);
+    unsigned char idle_val = MOTOR_IDLE;
+    unsigned char motor_val = MOTOR_IDLE;
+
+    int loop_count = 0;
+    int error_count = 3;
+    while (error_count != 0)
+    {
+        error_count = 3;
+        for (int i = 0; i < 3; ++i) {
+            if (position[i] < position_ref[i]) {
+                motor_val &= MOTOR_PULSE[i];
+                ++position[i];
+            } else if (position[i] > position_ref[i]){
+                idle_val &= MOTOR_DIR[i];
+                motor_val &= MOTOR_PULSE[i] & MOTOR_DIR[i];
+                --position[i];
+            } else {
+                --error_count;
+            }
+        }
+
+        Motor_command(idle_val);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+        Motor_command(motor_val);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+        Motor_command(idle_val);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+
+
+        ++loop_count;
+        if (loop_count > 200) {
+            loop_count = 0;
+
+            Serial.write("Idle/motor: ");
+            Serial.print(idle_val);
+            Serial.write(',');
+            Serial.print(motor_val);
+            Serial.write(",\n");
+
+            // Serial.print("Pos/ref: ");
+            // for (int i = 0; i < 3; ++i){
+            //     Serial.print(position[i]);
+            //     Serial.write('/');
+            //     Serial.print(position_ref[i]);
+            //     Serial.write(',');
+            // }
+            // Serial.write('\n');
+
+        }
+
     }
-    delayMicroseconds(DELAY_TIME);
-    for (int i = 0; i < steps; ++i) {
-        Motor_commmand(MOTOR_X_PULSE & MOTOR_X_DIR);
-        delayMicroseconds(DELAY_TIME);
-        Motor_commmand(MOTOR_X_DIR);
-        delayMicroseconds(DELAY_TIME);
-    }
-    delay(500);
 }
