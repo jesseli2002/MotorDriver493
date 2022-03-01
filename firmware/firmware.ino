@@ -109,16 +109,20 @@ void loop() {
     Motor_command(MOTOR_IDLE);
     delayMicroseconds(MOTOR_DELAY_TIME);
     for (int i = 0; i < steps; ++i) {
-        Motor_command(MOTOR_PULSE[0]);
+        Motor_command(255);
         delayMicroseconds(MOTOR_DELAY_TIME);
-        Motor_command(MOTOR_IDLE);
+        Motor_command(234);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+        Motor_command(255);
         delayMicroseconds(MOTOR_DELAY_TIME);
     }
     delayMicroseconds(MOTOR_DELAY_TIME);
     for (int i = 0; i < steps; ++i) {
-        Motor_command(MOTOR_PULSE[0] & MOTOR_DIR[0]);
+        Motor_command(213);
         delayMicroseconds(MOTOR_DELAY_TIME);
-        Motor_command(MOTOR_DIR[0]);
+        Motor_command(192);
+        delayMicroseconds(MOTOR_DELAY_TIME);
+        Motor_command(213);
         delayMicroseconds(MOTOR_DELAY_TIME);
     }
     delay(500);
