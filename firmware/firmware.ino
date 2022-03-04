@@ -92,14 +92,22 @@ inline void checkCommands() {
         // else packet is parsed
 
         switch(packet.id) {
-            case 0:
+        case 0:
             break; // reserved for E-stop
 
-            case 1:
+        case 1:
             // Provides absolute target update, little endian
             for(int i = 0; i < 3; ++i) {
                 memcpy(&(position_ref[i]), &(packet.dat[i * 4]), 4);
             }
+            break;
+
+        case 2:
+            // Echo
+            for (int i = 0; i < packet.len; ++i) {
+                Serial.write(packet.dat[i]);
+            }
+            break;
         }
     }
 }

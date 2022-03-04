@@ -5,7 +5,8 @@
  * Packet state: If escape bit is set, next byte is escaped. Remaining bits follow PacketState enum.
 */
 #define PACKET_START_BYTE 0x7E
-#define PACKET_ESCAPE_BYTE 0xA5
+// For some reason doing 0xA5 doesn't work...
+#define PACKET_ESCAPE_BYTE '\xA5'
 #define PACKET_ESCAPE_BIT 0b10000000
 #define PACKET_CRC_POLY 0x5b // https://users.ece.cmu.edu/~koopman/crc/ 8 bit CRC with good msg length, max HD is 4
 
@@ -30,7 +31,6 @@ void Packet_init(Packet* packet) {
  * @return True iff packet finished parsing.
 */
 bool Packet_parse(Packet* packet, char nextDat) {
-
     if (nextDat == PACKET_START_BYTE) {
         // Unescaped start byte - discard existing data and restart
         packet->state = static_cast<unsigned char>(PacketState_ID);

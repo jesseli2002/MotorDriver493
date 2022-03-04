@@ -16,6 +16,22 @@ Red connected to up/down motion (z-axis)
 - N bytes data - see length.
 - 1 byte checksum (currently unused)
 
-- Escape byte is 0xFF
+- Escape byte is 0xA5
 - Data should be little-endian
 
+## `set_position`
+- ID: 1
+- Length: 12
+- Data:
+    - 4-byte X position
+    - 4-byte Y position
+    - 4-byte Z position
+
+## `echo`
+- ID: 2
+- Length: variable
+- Data:
+    - String which will be printed back to serial port
+
+
+Problem: In echoing the response, what appears to happen is that the received data (raw, with escape codes) is being put directly into the data buffer. 

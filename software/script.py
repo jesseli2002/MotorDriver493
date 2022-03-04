@@ -30,14 +30,18 @@ class Controller:
         :brief: Commands the machine to a particular position.
         :param position: Array of 3 absolute positions, representing X,Y,Z coordinates for the machine.
         """
-        data = bytearray(
-            [
-                1,  # id
-                12,  # length
-            ]
-        )
+        # id, length
+        data = bytearray([1, 12])
         for i in range(3):
             data += (position[i]).to_bytes(byteorder="little", length=4, signed=True)
+        self._send(data)
+
+    def echo(self, msg: bytes):
+        """
+        :brief: Echo command
+        :param msg: Message that controller will echo back to serial port
+        """
+        data = bytearray([2, len(msg)]) + msg
         self._send(data)
 
     def _send(self, data):
@@ -50,20 +54,44 @@ class Controller:
                 self.serial.write(self.ESCAPE_BYTE)
                 byte ^= self.ESCAPE_BYTE_NUM
             self.serial.write(byte.to_bytes(1, "little"))
-        checksum = 0 # TODO: Actually compute the checksum
+        checksum = 0  # TODO: Actually compute the checksum
         self.serial.write(checksum.to_bytes(1, "little"))
 
 
 COMPORT = "COM12"
 ctller = Controller(COMPORT)
 for i in range(20):
+    # Demonstrate position setting
     ctller.set_position([5000, 10000, 15000])
     time.sleep(5)
     ctller.set_position([-5000, -10000, -15000])
     time.sleep(5)
 
+# # Demonstrate echo
+# for i in range(32):
+#     data = bytearray()
+#     for j in range(8):
+#         data += (i * 8 + j).to_bytes(1, "little")
+#     ctller.echo(data)
 
-# for _ in range(20):
-#     msg = ctller.serial.read(10000).decode(errors="replace")
-#     if msg != "":
-#         print(msg)
+#     for _ in range(5):
+#         msg = ctller.serial.read(10000)
+#         if msg != b"":
+#             print(list(msg))
+
+# class SerialFake:
+#     def write(self, x):
+#         print(list(x))
+
+# ctller.serial = SerialFake()
+
+# # debug
+# data = b"\x7E\x00\x01\x02\x03"
+# ctller.echo(data)
+
+# for _ in range(10):
+#     msg = ctller.serial.read(10000)
+#     if msg != b"":
+#         for line in msg.split(b"\n"):
+#             print(line)
+#         # print(list(msg))
