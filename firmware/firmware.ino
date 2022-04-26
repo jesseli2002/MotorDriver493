@@ -15,7 +15,7 @@ const unsigned char MOTOR_DIR[3] = {
 };
 
 // Time between steps (needed to avoid skipping), in microseconds
-#define MOTOR_DELAY_TIME 25
+#define MOTOR_DELAY_TIME 20
 // Time to wait for signal to settle, to avoid race conditions in direction
 #define MOTOR_SIGNAL_SETTLE_TIME 5
 

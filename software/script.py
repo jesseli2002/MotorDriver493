@@ -1,7 +1,7 @@
-from msilib.schema import Control
 from serial import Serial, PARITY_EVEN, PARITY_ODD
 from serial.tools.list_ports import comports
 import time
+import numpy as np
 
 
 class Controller:
@@ -33,7 +33,9 @@ class Controller:
         # id, length
         data = bytearray([1, 12])
         for i in range(3):
-            data += (position[i]).to_bytes(byteorder="little", length=4, signed=True)
+            data += (int(position[i])).to_bytes(
+                byteorder="little", length=4, signed=True
+            )
         self._send(data)
 
     def echo(self, msg: bytes):
@@ -60,12 +62,14 @@ class Controller:
 
 COMPORT = "COM12"
 ctller = Controller(COMPORT)
-for i in range(20):
-    # Demonstrate position setting
-    ctller.set_position([5000, 10000, 15000])
-    time.sleep(5)
-    ctller.set_position([-5000, -10000, -15000])
-    time.sleep(5)
+ctller.set_position([0, 100000, 0])
+
+# for i in range(20):
+#     # Demonstrate position setting
+#     ctller.set_position([500, 1000, 1500])
+#     time.sleep(5)
+#     ctller.set_position([0, 0, 0])
+#     time.sleep(5)
 
 # # Demonstrate echo
 # for i in range(32):
@@ -85,13 +89,47 @@ for i in range(20):
 
 # ctller.serial = SerialFake()
 
-# # debug
-# data = b"\x7E\x00\x01\x02\x03"
-# ctller.echo(data)
 
-# for _ in range(10):
-#     msg = ctller.serial.read(10000)
-#     if msg != b"":
-#         for line in msg.split(b"\n"):
-#             print(line)
-#         # print(list(msg))
+def drill():
+    # Demonstrate drill cycle =======
+    start = np.array([0, 0, 0])  # Starting position
+    ctller.set_position(start)
+    curr = start
+
+    # print("Moving drill down")
+    # curr[2] += 50000
+    # ctller.set_position(curr)
+    # time.sleep(6)
+
+    # Start orbiting
+    print("Start orbiting")
+    ORBIT_MAX_R = 30000
+    ORBIT_COUNTS_PER_REV = 360
+    ORBIT_ITER_COUNT = 1800
+    center = curr
+    last = curr
+    for t in range(ORBIT_ITER_COUNT + 1):
+        r = t / ORBIT_ITER_COUNT * ORBIT_MAX_R
+        theta = t / ORBIT_COUNTS_PER_REV * 2 * np.pi
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+        curr = center.copy()
+        curr[0] += x
+        curr[1] += y
+        ctller.set_position(curr)
+        sleep_time = 0.0001 * (np.max(np.abs(curr - last)))
+        time.sleep(0.0001 * (np.max(np.abs(curr - last))))
+        print(sleep_time)
+        last = curr
+
+    # TODO: Continue circling
+
+    # Return to center
+    print("Returning to center)")
+    ctller.set_position(center)
+    time.sleep(3)
+
+
+# # Move drill up
+# ctller.set_position(start)
+# time.sleep(10)
